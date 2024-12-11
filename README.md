@@ -13,7 +13,12 @@ accessible through a standard DNS server.
 ## Syntax
 
 ~~~
-mdns example.com [minimum SRV records] [filter text] [bind address]
+mdns example.com {
+    type [type]
+    min_srv_records [minimum SRV records] 
+    filter [filter text] 
+    bind_address [bind address]
+}
 ~~~
 
 ## Examples
@@ -41,13 +46,26 @@ baremetal-test-extra-1.example.com. 60 IN A   12.0.0.24
 baremetal-test-extra-1.example.com. 60 IN AAAA fe80::f816:3eff:fe49:19b3
 ~~~
 
-If `minimum SRV records` is specified in the configuration, the plugin will wait
+If `type` is specified in the configuration, the plugin will discover mDNS services with that type. By default type is `_workstation._tcp`.
+~~~ corefile
+example.com {
+    mdns example.com {
+      type _airplay._tcp
+    } 
+}
+~~~
+
+
+
+If `min_srv_records` is specified in the configuration, the plugin will wait
 until it has at least that many SRV records before responding with any of them.
-`minimum SRV records` defaults to `3`.
+_workstation._tcp` and `minimum SRV records` defaults to `3`.
 
 ~~~ corefile
 example.com {
-    mdns example.com 2
+    mdns example.com {
+      min_srv_records 2
+    } 
 }
 ~~~
 
@@ -55,7 +73,7 @@ This would mean that at least two SRV records of a given type would need to be
 present for any SRV records to be returned. If only one record is found, any
 requests for that type of SRV record would receive no results.
 
-If `filter text` is specified in the configuration, the plugin will ignore any
+If `filter` is specified in the configuration, the plugin will ignore any
 mDNS records that do not include the specified text in the service name. This
 allows the plugin to be used in environments where there may be mDNS services
 advertised that are not intended for use with it. When `filter text` is not
@@ -63,21 +81,24 @@ set, all records will be processed.
 
 ~~~ corefile
 example.com {
-    mdns example.com 3 my-id
+    mdns example.com {
+      filter my-id
+    }
 }
 ~~~
 
 This configuration would ignore any mDNS records that do not contain the
 string "my-id" in their service name.
 
-If `bind address` is specified in the configuration, the plugin will only send
+If `bind_address` is specified in the configuration, the plugin will only send
 mDNS traffic to the associated interface. This prevents sending multicast
-packets on interfaces where that may not be desirable. To use `bind address`
-without setting a filter, set `filter text` to "".
+packets on interfaces where that may not be desirable. 
 
 ~~~ corefile
 example.com {
-    mdns example.com 3 "" 192.168.1.1
+    mdns example.com {
+      bind_address 192.168.1.1
+    }
 }
 ~~~
 
@@ -92,7 +113,7 @@ Queries to mDNS are constrained to the `local` domain, alternative domains that 
 
 If you have multiple network interfaces that respond to mDNS for your host(eg on the same system that CoreDNS is running), this can result in the wrong IP address returned for a hostname due to a race condition with multicast. Make sure you configure your mDNS server to whitelist the network interface with the assigned IP address you want to associate the hostname to.
 
-If a query is not responding, check the log for hosts discovered by this plugin reported as `mdnsHosts`. The plugin will populate `mdnsHosts` by **only discovering** mDNS services of the type `_workstation._tcp`.
+If a query is not responding, check the log for hosts discovered by this plugin reported as `mdnsHosts`. 
 
 ### Publishing `_workstation._tcp` service with Avahi
 

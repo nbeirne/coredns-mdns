@@ -24,6 +24,7 @@ var log = clog.NewWithPlugin("mdns")
 type MDNS struct {
 	Next        plugin.Handler
 	Domain      string
+	mdnsType    string
 	minSRV      int
 	filter      string
 	bindAddress string
@@ -180,7 +181,7 @@ func (m *MDNS) BrowseMDNS() {
 			iface = foundIface
 		}
 	}
-	_ = queryService("_workstation._tcp", entriesCh, iface, ZeroconfImpl{})
+	_ = queryService(m.mdnsType, entriesCh, iface, ZeroconfImpl{})
 	_ = queryService("_etcd-server-ssl._tcp", srvEntriesCh, iface, ZeroconfImpl{})
 
 	m.mutex.Lock()

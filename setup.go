@@ -1,8 +1,6 @@
 package mdns
 
 import (
-	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,27 +24,52 @@ func setup(c *caddy.Controller) error {
 	c.Next()
 	c.NextArg()
 	domain := c.Val()
+	mdnsType := "_workstation._tcp"
 	minSRV := 3
 	// Note that a filter of "" will match everything
 	filter := ""
 	bindAddress := ""
-	if c.NextArg() {
-		val, err := strconv.Atoi(c.Val())
-		if err != nil {
-			text := fmt.Sprintf("Invalid minSRV: %s", err)
-			return plugin.Error("mdns", errors.New(text))
+
+	for c.NextBlock() {
+		switch c.Val() {
+		case "type":
+			remaining := c.RemainingArgs()
+			if len(remaining) != 1 {
+				return c.Errf("type needs to exist")
+			}
+			mdnsType = remaining[0]
+		case "min_srv_records":
+			remaining := c.RemainingArgs()
+			if len(remaining) != 1 {
+				return c.Errf("min_srv_records needs a number")
+			}
+			srvInt, err := strconv.Atoi(remaining[0])
+			if err != nil {
+				return c.Errf("min_srv_records provided is invalid")
+			}
+			minSRV = srvInt
+		case "filter_text":
+			remaining := c.RemainingArgs()
+			if len(remaining) != 1 {
+				return c.Errf("filter needs text to filter")
+			}
+			filter = remaining[0]
+		case "bind_address":
+			remaining := c.RemainingArgs()
+			if len(remaining) != 1 {
+				return c.Errf("bind_address needs an address to bind to")
+			}
+			bindAddress = remaining[0]
+		default:
+			return c.Errf("unknown property '%s'", c.Val())
 		}
-		minSRV = val
 	}
-	if c.NextArg() {
-		filter = c.Val()
-	}
-	if c.NextArg() {
-		bindAddress = c.Val()
-	}
-	if c.NextArg() {
-		return plugin.Error("mdns", c.ArgErr())
-	}
+
+	log.Infof("domain:          %s", domain);
+	log.Infof("type:            %s", mdnsType);
+	log.Infof("min_srv_records: %d", minSRV);
+	log.Infof("filter_text:     %s", filter);
+	log.Infof("bind_address:    %s", bindAddress);
 
 	// Because the plugin interface uses a value receiver, we need to make these
 	// pointers so all copies of the plugin point at the same maps.
@@ -54,7 +77,7 @@ func setup(c *caddy.Controller) error {
 	srvHosts := make(map[string][]*zeroconf.ServiceEntry)
 	cnames := make(map[string]string)
 	mutex := sync.RWMutex{}
-	m := MDNS{Domain: strings.TrimSuffix(domain, "."), minSRV: minSRV, filter: filter, bindAddress: bindAddress, mutex: &mutex, mdnsHosts: &mdnsHosts, srvHosts: &srvHosts, cnames: &cnames}
+	m := MDNS{Domain: strings.TrimSuffix(domain, "."), mdnsType: mdnsType, minSRV: minSRV, filter: filter, bindAddress: bindAddress, mutex: &mutex, mdnsHosts: &mdnsHosts, srvHosts: &srvHosts, cnames: &cnames}
 
 	c.OnStartup(func() error {
 		go browseLoop(&m)
